@@ -502,11 +502,12 @@ namespace Xamarin.Forms.Platform.Android
 				renderedView = null;
 			}
 
-			foreach (var layout in _layoutsCreated)
+			// Just use this to dispose of renderers? 
+			for (int i = 0; i < _layoutsCreated.Count; i++)
 			{
+				var layout = _layoutsCreated[i];
 				System.Diagnostics.Debug.WriteLine($"A view was left over");
-
-				var renderedView = layout?.GetChildAt(0);
+				var renderedView = layout.GetChildAt(0);
 				var element = (renderedView as INativeElementView)?.Element;
 
 				var view = (element as ViewCell)?.View;
