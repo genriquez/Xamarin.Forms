@@ -27,6 +27,7 @@ namespace Xamarin.Forms.Platform.Android
 		protected readonly ListView _listView;
 		readonly AListView _realListView;
 		readonly Dictionary<DataTemplate, int> _templateToId = new Dictionary<DataTemplate, int>();
+		readonly List<ConditionalFocusLayout> _layoutsCreated = new List<ConditionalFocusLayout>();
 		int _dataTemplateIncrementer = 2; // lets start at not 0 because ... 
 
 		// We will use _dataTemplateIncrementer to get the proper ViewType key for the item's DataTemplate and store these keys in  _templateToId.
@@ -181,7 +182,7 @@ namespace Xamarin.Forms.Platform.Android
 				_templateToId[itemTemplate] = key;
 			}
 
-			if (key >= ViewTypeCount) 
+			if (key >= ViewTypeCount)
 			{
 				throw new Exception($"ItemTemplate count has exceeded the limit of {ViewTypeCount}" + Environment.NewLine +
 									 "Please make sure to reuse DataTemplate objects");
@@ -226,7 +227,10 @@ namespace Xamarin.Forms.Platform.Android
 				convertView = layout.GetChildAt(0);
 			}
 			else
+			{
 				layout = new ConditionalFocusLayout(_context) { Orientation = Orientation.Vertical };
+				_layoutsCreated.Add(layout);
+			}
 
 			if (((cachingStrategy & ListViewCachingStrategy.RecycleElement) != 0) && convertView != null)
 			{
@@ -474,8 +478,35 @@ namespace Xamarin.Forms.Platform.Android
 				if (layout == null || layout.IsDisposed())
 					continue;
 
+				_layoutsCreated.Remove(layout);
 				var renderedView = layout?.GetChildAt(0);
 
+
+				var element = (renderedView as INativeElementView)?.Element;
+
+				var view = (element as ViewCell)?.View;
+
+				if (view != null)
+				{
+					System.Diagnostics.Debug.WriteLine($"DisposeCells: {i}");
+					var renderer = Platform.GetRenderer(view);
+
+					if (renderer == renderedView)
+						element.ClearValue(Platform.RendererProperty);
+
+					renderer?.Dispose();
+					renderer = null;
+				}
+
+				renderedView?.Dispose();
+				renderedView = null;
+			}
+
+			foreach (var layout in _layoutsCreated)
+			{
+				System.Diagnostics.Debug.WriteLine($"A view was left over");
+
+				var renderedView = layout?.GetChildAt(0);
 				var element = (renderedView as INativeElementView)?.Element;
 
 				var view = (element as ViewCell)?.View;
@@ -493,7 +524,10 @@ namespace Xamarin.Forms.Platform.Android
 
 				renderedView?.Dispose();
 				renderedView = null;
+
 			}
+
+			_layoutsCreated.Clear();
 		}
 
 		// TODO: We can optimize this by storing the last position, group index and global index

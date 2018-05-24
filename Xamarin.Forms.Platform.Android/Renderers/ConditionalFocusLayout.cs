@@ -16,6 +16,11 @@ namespace Xamarin.Forms.Platform.Android
 			SetOnTouchListener(this);
 		}
 
+		protected override void Dispose(bool disposing)
+		{
+			base.Dispose(disposing);
+		}
+
 		public bool OnTouch(global::Android.Views.View v, MotionEvent e)
 		{
 			bool allowFocus = v is EditText;

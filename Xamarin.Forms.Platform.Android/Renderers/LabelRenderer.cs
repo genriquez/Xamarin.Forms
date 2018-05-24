@@ -29,16 +29,33 @@ namespace Xamarin.Forms.Platform.Android
 		readonly MotionEventHelper _motionEventHelper = new MotionEventHelper();
 
 		SpannableString _spannableString;
-
+		int myCount = -1;
+		static int overallCount = 0;
 		public LabelRenderer(Context context) : base(context)
 		{
 			AutoPackage = false;
+			if (myCount == -1)
+				myCount = overallCount;
+
+			System.Diagnostics.Debug.WriteLine($"{myCount}");
+			overallCount++;
 		}
 
 		[Obsolete("This constructor is obsolete as of version 2.5. Please use LabelRenderer(Context) instead.")]
 		public LabelRenderer()
 		{
 			AutoPackage = false;
+			if (myCount == -1)
+				myCount = overallCount;
+
+			System.Diagnostics.Debug.WriteLine($"{myCount}");
+			overallCount++;
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			System.Diagnostics.Debug.WriteLine($"{myCount}");
+			base.Dispose(disposing);
 		}
 
 		public override SizeRequest GetDesiredSize(int widthConstraint, int heightConstraint)

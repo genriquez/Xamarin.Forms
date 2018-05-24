@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Xamarin.Forms.Internals;
@@ -29,7 +32,7 @@ namespace Xamarin.Forms.Controls
 		public App()
 		{
 			_testCloudService = DependencyService.Get<ITestCloudService>();
-			
+
 			SetMainPage(CreateDefaultMainPage());
 
 			//// Uncomment to verify that there is no gray screen displayed between the blue splash and red MasterDetailPage.
@@ -48,17 +51,119 @@ namespace Xamarin.Forms.Controls
 			//SetMainPage(new Bugzilla45702());
 		}
 
+		[Preserve(AllMembers = true)]
+		public class Data : INotifyPropertyChanged
+		{
+			private string _text;
+
+			public string Text
+			{
+				get => _text;
+				set
+				{
+					_text = value;
+					PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
+					PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Color)));
+					PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Font)));
+				}
+			}
+
+			public Color Color
+			{
+				get
+				{
+					return new Color(new Random().Next(0, 255) / 255.0, new Random().Next(0, 255) / 255.0, new Random().Next(0, 255) / 255.0);
+				}
+			}
+
+			public Font Font
+			{
+				get
+				{
+					return Font.SystemFontOfSize(DateTime.Now.Second);
+				}
+			}
+
+			public event PropertyChangedEventHandler PropertyChanged;
+		}
+
+		async void DoStuff(ObservableCollection<Data> dataElements)
+		{
+			foreach (var item in dataElements)
+			{
+				item.Text = Guid.NewGuid().ToString();
+			}
+			dataElements.Move(0, 2);
+			dataElements.Move(2, 26);
+
+			await Task.Delay(500);
+			Device.BeginInvokeOnMainThread(() => DoStuff(dataElements));
+		}
+
 		public Page CreateDefaultMainPage()
 		{
-			var layout = new StackLayout { BackgroundColor = Color.Red };
-			layout.Children.Add(new Label { Text ="This is master Page" });
-			var master = new ContentPage { Title = "Master", Content = layout,  BackgroundColor = Color.SkyBlue };
-			master.On<iOS>().SetUseSafeArea(true);
-			return new MasterDetailPage
+			return new NavigationPage(new ContentPage()
 			{
-				AutomationId = DefaultMainPageId,
-				Master = master,
-				Detail = CoreGallery.GetMainPage()
+				Content = new StackLayout()
+				{
+					Children =
+					{
+						new Button()
+						{
+							Text    = "button",
+							Command = new Command(() =>
+							{
+								App.Current.MainPage.Navigation.PushAsync(CreateListViewPage());
+							})
+						}
+					}
+				}
+			});
+		}
+
+		Page CreateListViewPage()
+		{
+			ListView view = new ListView(ListViewCachingStrategy.RecycleElement);
+			view.ItemTemplate = new DataTemplate(() =>
+			{
+				ViewCell cell = new ViewCell();
+
+				Label label = new Label();
+				label.TextColor = Color.Black;
+				label.BackgroundColor = Color.White;
+				label.Text = "Candyt";
+				label.SetBinding(Label.TextProperty, "Text");
+				label.SetBinding(Label.FontProperty, "Font");
+				cell.View = new ContentView()
+				{
+					Content = new StackLayout()
+					{
+						Orientation = StackOrientation.Horizontal,
+						Children =
+						{
+							label,
+							new Image{Source = "coffee.png"}
+						}
+					},
+					HeightRequest = 40
+				};
+
+				(cell.View as ContentView).SetBinding(ContentView.BackgroundColorProperty, "Color");
+				return cell;
+			});
+
+			var data = new ObservableCollection<Data>(Enumerable.Range(0, 70).Select(_ => new Data()));
+			view.ItemsSource = data;
+			//DoStuff(data);
+
+			MessagingCenter.Subscribe<object>(this, "LabelRendererDispose", (x)=>
+			{
+				MainPage.Navigation.PopAsync();
+			});
+
+			return new ContentPage()
+			{
+				Content = view
 			};
 		}
 
@@ -155,7 +260,7 @@ namespace Xamarin.Forms.Controls
 				// Set up a delegate to handle the navigation to the test page
 				EventHandler toTestPage = null;
 
-				toTestPage = delegate(object sender, EventArgs e) 
+				toTestPage = delegate (object sender, EventArgs e)
 				{
 					Current.MainPage.Navigation.PushModalAsync(TestCases.GetTestCases());
 					TestCases.TestCaseScreen.PageToAction[test]();
@@ -169,7 +274,7 @@ namespace Xamarin.Forms.Controls
 
 				return true;
 			}
-			catch (Exception ex) 
+			catch (Exception ex)
 			{
 				Log.Warning("UITests", $"Error attempting to navigate directly to {test}: {ex}");
 
@@ -177,7 +282,7 @@ namespace Xamarin.Forms.Controls
 
 			return false;
 		}
-		
+
 		public void Reset()
 		{
 			SetMainPage(CreateDefaultMainPage());
